@@ -20,8 +20,15 @@ contract Offer {
         uint32 endBlock;
     }
 
+    struct PoolHolderInfo {
+        address holder;
+        uint holderPercentage;
+    }
+
     mapping(address => PoolInfo) public poolInfos;
     mapping(address => mapping(address => uint)) public userAmounts;
+
+    mapping(address => PoolHolderInfo[4]) public poolHolderInfos;
 
     event Deposited(
         address indexed dino20,
@@ -62,7 +69,9 @@ contract Offer {
         address owner,
         uint endBlock,
         uint initialSupply,
-        uint offeringAmount
+        uint offeringAmount,
+        address[4] memory holders,
+        uint[4] memory holderPercentages
     ) public {
         require(msg.sender == dino.controller(), "Dino: controller");
 
@@ -71,6 +80,13 @@ contract Offer {
             safe112(offeringAmount),
             0,
             safe32(endBlock));
+
+        for(uint i = 0; i<4; i++) {
+            poolHolderInfos[dino20][i] = PoolHolderInfo(
+                holders[i],
+                holderPercentages[i]
+            );
+        }
 
         IKIP7(dino20).transferFrom(msg.sender, address(this), initialSupply);
     }
@@ -139,12 +155,33 @@ contract Offer {
     function claimOwner(address dino20) public {
         PoolInfo memory pool = poolInfos[dino20];
         require(block.number >= pool.endBlock, "Dino: not over");
-        uint currentBalance = IKIP7(dino20).balanceOf(address(this));
+        IKIP7 dino20i = IKIP7(dino20);
+        uint currentBalance = dino20i.balanceOf(address(this));
 
         if(currentBalance > pool.offeringAmount) {
-            uint ownerBalance = currentBalance.sub(uint(pool.offeringAmount));
 
-            IKIP7(dino20).transfer(pool.owner, ownerBalance);
+            uint holderBalance = currentBalance
+                .sub(uint(pool.offeringAmount))
+                .sub(dino20i.totalSupply()
+                    .mul(dino.ownPercentage())
+                    .div(1e18));
+
+
+            for(uint i = 0; i<4; i++) {
+                address currentHolder = poolHolderInfos[dino20][i].holder;
+                if(currentHolder != address(0)) {
+                    dino20i.transfer(
+                        currentHolder,
+                        holderBalance
+                            .mul(poolHolderInfos[dino20][i].holderPercentage)
+                            .div(1e18));
+                }
+            }
+
+            uint ownerBalance = dino20i.balanceOf(address(this))
+                .sub(uint(pool.offeringAmount));
+
+            dino20i.transfer(pool.owner, ownerBalance);
 
             emit ClaimOwner(
                 dino20,

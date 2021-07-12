@@ -26,7 +26,7 @@ contract('Offer test', ([alice, bob, carol, dev, minter]) => {
         await this.dino.mint(carol, '10000', {from: minter});
         await this.dino.approve(this.offer.address, '1000000000', {from: carol});
 
-        this.reward = await MockKIP7.new('Reward', 'Reward', '10000000000000', { from: minter });
+        this.reward = await MockKIP7.new('Reward', 'Reward', '1000000', { from: minter });
 
         await this.reward.approve(this.offer.address, '1000000000000', {from: minter});
 
@@ -43,7 +43,18 @@ contract('Offer test', ([alice, bob, carol, dev, minter]) => {
     });
 
     it('should create offer properly', async () => {
-        let res = await this.offer.newOffering(this.reward.address, dev, "100", "1000000", "100000", {from: minter});
+        let res = await this.offer.newOffering(
+            this.reward.address,
+            dev,
+            "100",
+            "1000000",
+            "100000",
+            ["0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000"],
+            ["0","0","0","0"],
+            {from: minter});
         console.log(res.receipt.gasUsed);
 
         let poolInfo = await this.offer.poolInfos(this.reward.address);
@@ -54,7 +65,18 @@ contract('Offer test', ([alice, bob, carol, dev, minter]) => {
     });
 
     it('should deposit properly', async () => {
-        await this.offer.newOffering(this.reward.address, dev, "100", "1000000", "100000", {from: minter});
+        await this.offer.newOffering(
+            this.reward.address,
+            dev,
+            "100",
+            "1000000",
+            "100000",
+            ["0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000"],
+            ["0","0","0","0"],
+            {from: minter});
 
         let res = await this.offer.deposit(this.reward.address, '100', {from: alice});
         console.log(res.receipt.gasUsed);
@@ -94,7 +116,18 @@ contract('Offer test', ([alice, bob, carol, dev, minter]) => {
     });
 
     it('should withdraw properly', async () => {
-        await this.offer.newOffering(this.reward.address, dev, "200", "1000000", "100000", {from: minter});
+        await this.offer.newOffering(
+            this.reward.address,
+            dev,
+            "200",
+            "1000000",
+            "100000",
+            ["0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000"],
+            ["0","0","0","0"],
+            {from: minter});
 
         await this.offer.deposit(this.reward.address, '100', {from: alice});
         await this.offer.deposit(this.reward.address, '200', {from: bob});
@@ -142,7 +175,18 @@ contract('Offer test', ([alice, bob, carol, dev, minter]) => {
     });
 
     it('should claim properly', async () => {
-        await this.offer.newOffering(this.reward.address, dev, "300", "1000000", "100000", {from: minter});
+        await this.offer.newOffering(
+            this.reward.address,
+            dev,
+            "300",
+            "1000000",
+            "100000",
+            ["0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000"],
+            ["0","0","0","0"],
+            {from: minter});
 
         await this.offer.deposit(this.reward.address, '2000', {from: alice});
         await this.offer.deposit(this.reward.address, '3000', {from: bob});
@@ -206,7 +250,21 @@ contract('Offer test', ([alice, bob, carol, dev, minter]) => {
     });
 
     it('should claim owner properly', async () => {
-        await this.offer.newOffering(this.reward.address, dev, "400", "1000000", "100000", {from: minter});
+        await this.offer.newOffering(
+            this.reward.address,
+            dev,
+            "400",
+            "1000000",
+            "100000",
+            ["0x0000000000000000000000000000000000000001",
+                "0x0000000000000000000000000000000000000002",
+                "0x0000000000000000000000000000000000000003",
+                "0x0000000000000000000000000000000000000004"],
+            ["100000000000000000",
+                "100000000000000000",
+                "100000000000000000",
+                "100000000000000000"],
+            {from: minter});
 
         await this.offer.deposit(this.reward.address, '2000', {from: alice});
         await this.offer.deposit(this.reward.address, '3000', {from: bob});
@@ -227,7 +285,11 @@ contract('Offer test', ([alice, bob, carol, dev, minter]) => {
         console.log(res.receipt.gasUsed);
 
         assert.equal((await this.reward.balanceOf(this.offer.address)).valueOf(), '0');
-        assert.equal((await this.reward.balanceOf(dev)).valueOf(), '900000');
+        assert.equal((await this.reward.balanceOf(dev)).valueOf(), '744000');
+        assert.equal((await this.reward.balanceOf("0x0000000000000000000000000000000000000001")).valueOf(), '39000');
+        assert.equal((await this.reward.balanceOf("0x0000000000000000000000000000000000000002")).valueOf(), '39000');
+        assert.equal((await this.reward.balanceOf("0x0000000000000000000000000000000000000003")).valueOf(), '39000');
+        assert.equal((await this.reward.balanceOf("0x0000000000000000000000000000000000000004")).valueOf(), '39000');
 
     });
 });

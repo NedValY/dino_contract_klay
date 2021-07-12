@@ -28,7 +28,9 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
                 '100',
                 '1000',
                 '100',
-                '1000',
+                '100',
+                '0',
+                '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
@@ -60,8 +62,10 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
                 '100',
                 '200',
                 '1000',
-                '100',
-                '1000',
+                '200',
+                '200',
+                '0',
+                '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
@@ -91,8 +95,10 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
                 '100',
                 '300',
                 '1000',
-                '100',
-                '1000',
+                '300',
+                '300',
+                '0',
+                '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
@@ -152,8 +158,10 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
                 '100',
                 '400',
                 '1000',
-                '100',
-                '1000',
+                '400',
+                '400',
+                '0',
+                '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
@@ -182,24 +190,69 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
             assert.equal((await this.distributor.rewardAmount(1, bob)).valueOf(), '333');
         });
 
-        it('should stop giving distributors after the period ends', async () => {
+        it('should stop giving bonus after the bonus period ends', async () => {
             this.distributor = await Distributor.new(
                 this.dino.address,
                 '100',
                 '600',
                 '700',
+                '630',
+                '660',
+                '4',
+                '2',
+                { from: alice });
+            await this.dino.setMinter(this.distributor.address, {from: dev});
+
+            await this.lp.approve(this.distributor.address, '1000', { from: alice });
+            await this.lp.approve(this.distributor.address, '1000', { from: bob });
+            await this.distributor.addRewardPool(this.lp.address, '1', {from: dev});
+            // Alice deposits 10 LPs at block 590
+            await time.advanceBlockTo('625');
+            await this.distributor.deposit(0, '10', { from: alice });
+            await this.distributor.deposit(0, '10', { from: bob });
+
+            await time.advanceBlockTo('650');
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '3000'); //400+200*3+100*20
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '2600'); //200*3+100*20
+
+            await this.distributor.claim(0, { from: alice });
+            assert.equal((await this.dino.balanceOf(alice)).valueOf(), '3100');
+            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '0');
+
+            await time.advanceBlockTo('670');
+
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '1400'); //100*9+50*10
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '4100'); //100*10+50*10
+
+            await this.distributor.claim(0, { from: alice });
+            await this.distributor.claim(0, { from: bob });
+
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '50');
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '0');
+            assert.equal((await this.dino.balanceOf(alice)).valueOf(), '4550');
+            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '4200');
+        });
+
+        it('should stop giving distributors after the period ends', async () => {
+            this.distributor = await Distributor.new(
+                this.dino.address,
                 '100',
-                '1000',
+                '700',
+                '800',
+                '700',
+                '700',
+                '0',
+                '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
             await this.lp.approve(this.distributor.address, '1000', { from: alice });
             await this.distributor.addRewardPool(this.lp.address, '1', {from: dev});
             // Alice deposits 10 LPs at block 590
-            await time.advanceBlockTo('689');
+            await time.advanceBlockTo('789');
             await this.distributor.deposit(0, '10', { from: alice });
 
-            await time.advanceBlockTo('705');
+            await time.advanceBlockTo('805');
             assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '1000');
 
             await this.distributor.claim(0, { from: alice });

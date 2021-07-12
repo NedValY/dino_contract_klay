@@ -26,7 +26,9 @@ contract Controller {
         address owner,
         uint endBlock,
         uint initialSupply,
-        uint offeringAmount);
+        uint offeringAmount,
+        address[4] holders,
+        uint[4] holderPercentages);
 
     event OwnerRefreshed(
         address indexed nft,
@@ -55,11 +57,19 @@ contract Controller {
         string memory name_,
         string memory symbol_,
         uint initialSupply,
-        uint endBlock
+        uint endBlock,
+        address[4] memory holders,
+        uint[4] memory holderPercentages
     ) public payable {
         require(endBlock > block.number, "Dino: offering block");
         require(msg.value == dino.newNFTFee(), "Dino: nft fee");
         require(initialSupply < 2**112, "Dino: 112");
+
+        uint totalHolderPercentage;
+        for(uint i = 0; i<4; i++) {
+            totalHolderPercentage = totalHolderPercentage.add(holderPercentages[i]);
+        }
+        require(totalHolderPercentage <= 1e18, "Dino: holders");
 
         address newNFTAddress = nft;
         uint newTokenId = tokenId;
@@ -95,7 +105,9 @@ contract Controller {
             msg.sender,
             endBlock,
             initialSupply,
-            offeringAmount);
+            offeringAmount,
+            holders,
+            holderPercentages);
 
         emit NewDino721(
             newNFTAddress,
@@ -104,7 +116,9 @@ contract Controller {
             msg.sender,
             endBlock,
             initialSupply,
-            offeringAmount);
+            offeringAmount,
+            holders,
+            holderPercentages);
     }
 
     function refreshOwner(

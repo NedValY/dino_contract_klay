@@ -21,8 +21,15 @@ contract Distributor {
     uint public endBlock;
     uint public totalWeight;
 
-    uint public bonusAmount;
     uint public bonusEndBlock;
+    uint public secondBonusEndBlock;
+
+    uint public bonusTokenPerBlock;
+    uint public secondBonusTokenPerBlock;
+
+    uint private totalAmountUntilBonus;
+    uint private totalAmountUntilSecondBonus;
+    uint private totalAmountUntilEnd;
 
     poolInfo[] public rewardPools;
 
@@ -40,11 +47,6 @@ contract Distributor {
     }
 
     mapping (address => mapping (uint => userInfo)) public userInfos;
-    mapping (address => bool) public bonusClaimed;
-
-    event NewBonusAmount(uint newBonusAmount);
-    event NewBonusEndBlock(uint newBonusEndBlock);
-    event ClaimBonus(address indexed dino20, address indexed account, uint amount);
 
     event NewRewardPool(uint indexed idx, address rewardPool, uint weight);
     event NewWeight(uint indexed idx, uint weight);
@@ -69,37 +71,42 @@ contract Distributor {
         uint _tokenPerBlock,
         uint _startBlock,
         uint _endBlock,
-        uint _bonusAmount,
-        uint _bonusEndBlock
+        uint _bonusEndBlock,
+        uint _secondBonusEndBlock,
+        uint bonusMultiplier,
+        uint secondBonusMultiplier
     ) public {
+        require(_startBlock <= _bonusEndBlock
+            && _bonusEndBlock <= _secondBonusEndBlock
+            && _secondBonusEndBlock <= _endBlock, "Dino: period");
+
         dino = IDino(_dino);
         tokenPerBlock = _tokenPerBlock;
         startBlock = _startBlock;
         endBlock = _endBlock;
 
-        bonusAmount = _bonusAmount;
         bonusEndBlock = _bonusEndBlock;
+        secondBonusEndBlock = _secondBonusEndBlock;
+
+        bonusTokenPerBlock = bonusMultiplier.mul(tokenPerBlock);
+        secondBonusTokenPerBlock = secondBonusMultiplier.mul(tokenPerBlock);
+
+        totalAmountUntilBonus = bonusEndBlock
+            .sub(startBlock)
+            .mul(bonusTokenPerBlock);
+        totalAmountUntilSecondBonus = secondBonusEndBlock
+            .sub(bonusEndBlock)
+            .mul(secondBonusTokenPerBlock)
+            .add(totalAmountUntilBonus);
+        totalAmountUntilEnd = endBlock
+            .sub(secondBonusEndBlock)
+            .mul(tokenPerBlock)
+            .add(totalAmountUntilSecondBonus);
     }
 
     function setDino(address _dino) public {
         require(msg.sender == dino.admin(), "Dino: admin");
         dino = IDino(_dino);
-    }
-
-    function setBonusAmount(uint _bonusAmount) public {
-        require(msg.sender == dino.admin(), "Dino: admin");
-
-        bonusAmount = _bonusAmount;
-
-        emit NewBonusAmount(_bonusAmount);
-    }
-
-    function setBonusEndBlock(uint _bonusEndBlock) public {
-        require(msg.sender == dino.admin(), "Dino: admin");
-
-        bonusEndBlock = _bonusEndBlock;
-
-        emit NewBonusEndBlock(_bonusEndBlock);
     }
 
     function addRewardPool(address token, uint weight) public {
@@ -133,14 +140,32 @@ contract Distributor {
         emit NewWeight(idx, weight);
     }
 
-    function rewardPerPeriod(uint lastBlock) public view returns (uint) {
-        uint currentBlock = block.number < startBlock
-            ? startBlock
-            : (block.number > endBlock ? endBlock : block.number);
+    function getTotalReward(uint blockNumber) internal view returns (uint) {
+        if(blockNumber > endBlock) {
+            return totalAmountUntilEnd;
+        }
+        if(blockNumber > secondBonusEndBlock) {
+            return blockNumber
+                .sub(secondBonusEndBlock)
+                .mul(tokenPerBlock)
+                .add(totalAmountUntilSecondBonus);
+        }
+        if(blockNumber > bonusEndBlock) {
+            return blockNumber
+                .sub(bonusEndBlock)
+                .mul(secondBonusTokenPerBlock)
+                .add(totalAmountUntilBonus);
+        }
+        return blockNumber
+            .sub(startBlock)
+            .mul(bonusTokenPerBlock);
+    }
 
-        return currentBlock
-            .sub(lastBlock)
-            .mul(tokenPerBlock);
+    function rewardPerPeriod(uint lastBlock) public view returns (uint) {
+        uint currentBlock = block.number < startBlock ? startBlock : block.number;
+
+        return getTotalReward(currentBlock)
+            .sub(getTotalReward(lastBlock));
     }
 
     function rewardAmount(uint idx, address account) public view returns (uint) {
@@ -261,25 +286,6 @@ contract Distributor {
         }
 
         emit ClaimReward(msg.sender, idx, reward);
-    }
-
-    function claimBonusAmount(address dino20) public {
-        require(!bonusClaimed[dino20], "Dino: claimed");
-        require(block.number < bonusEndBlock, "Dino: claimed");
-
-        IMapper mapper = IMapper(dino.mapper());
-
-        (address nft, uint tokenId) = mapper.dino20ToNFTInfo(dino20);
-        (, address owner) = mapper.tokenInfos(nft, tokenId);
-
-        require(msg.sender == owner, "Dino: owner");
-        bonusClaimed[dino20] = true;
-        dino.mint(msg.sender, bonusAmount);
-
-        emit ClaimBonus(
-            dino20,
-            msg.sender,
-            bonusAmount);
     }
 
     function getAllPoolLists() public view returns (address[] memory, uint[] memory, uint[] memory){

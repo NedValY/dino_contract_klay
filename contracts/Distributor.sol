@@ -16,20 +16,17 @@ contract Distributor {
 
     IDino public dino;
 
-    uint public tokenPerBlock;
+    uint public blocksPerYear;
+
     uint public startBlock;
     uint public endBlock;
     uint public totalWeight;
 
-    uint public bonusEndBlock;
-    uint public secondBonusEndBlock;
+    uint[6] public tokenPerBlock;
+    uint[6] private totalAmountUntilBonus;
+    uint[6] private blocksPassed;
 
-    uint public bonusTokenPerBlock;
-    uint public secondBonusTokenPerBlock;
-
-    uint private totalAmountUntilBonus;
-    uint private totalAmountUntilSecondBonus;
-    uint private totalAmountUntilEnd;
+    uint public receiverFee;
 
     poolInfo[] public rewardPools;
 
@@ -68,40 +65,39 @@ contract Distributor {
 
     constructor (
         address _dino,
-        uint _tokenPerBlock,
         uint _startBlock,
-        uint _endBlock,
-        uint _bonusEndBlock,
-        uint _secondBonusEndBlock,
-        uint bonusMultiplier,
-        uint secondBonusMultiplier
+        uint _blocksPerYear,
+        uint totalDistributingAmount,
+        uint _receiverFee
     ) public {
-        require(_startBlock <= _bonusEndBlock
-            && _bonusEndBlock <= _secondBonusEndBlock
-            && _secondBonusEndBlock <= _endBlock, "Dino: period");
-
         dino = IDino(_dino);
-        tokenPerBlock = _tokenPerBlock;
+        blocksPerYear = _blocksPerYear;
         startBlock = _startBlock;
-        endBlock = _endBlock;
+        endBlock = _startBlock*5*blocksPerYear;
+        receiverFee = _receiverFee;
 
-        bonusEndBlock = _bonusEndBlock;
-        secondBonusEndBlock = _secondBonusEndBlock;
+        tokenPerBlock = [
+            totalDistributingAmount*0.25e18/blocksPerYear,
+            totalDistributingAmount*0.225e18/blocksPerYear,
+            totalDistributingAmount*0.2e18/blocksPerYear,
+            totalDistributingAmount*0.175e18/blocksPerYear,
+            totalDistributingAmount*0.15e18/blocksPerYear,
+            0
+        ];
 
-        bonusTokenPerBlock = bonusMultiplier.mul(tokenPerBlock);
-        secondBonusTokenPerBlock = secondBonusMultiplier.mul(tokenPerBlock);
+        totalAmountUntilBonus[0] = 0;
+        for(uint i = 1; i<6; i++) {
+            totalAmountUntilBonus[i] = totalAmountUntilBonus[i - 1] + tokenPerBlock[i - 1] * blocksPerYear;
+        }
 
-        totalAmountUntilBonus = bonusEndBlock
-            .sub(startBlock)
-            .mul(bonusTokenPerBlock);
-        totalAmountUntilSecondBonus = secondBonusEndBlock
-            .sub(bonusEndBlock)
-            .mul(secondBonusTokenPerBlock)
-            .add(totalAmountUntilBonus);
-        totalAmountUntilEnd = endBlock
-            .sub(secondBonusEndBlock)
-            .mul(tokenPerBlock)
-            .add(totalAmountUntilSecondBonus);
+        blocksPassed = [
+            0,
+            blocksPerYear,
+            blocksPerYear*2,
+            blocksPerYear*3,
+            blocksPerYear*4,
+            blocksPerYear*5
+        ];
     }
 
     function setDino(address _dino) public {
@@ -141,24 +137,15 @@ contract Distributor {
     }
 
     function getTotalReward(uint blockNumber) internal view returns (uint) {
-        if(blockNumber > endBlock) {
-            return totalAmountUntilEnd;
-        }
-        if(blockNumber > secondBonusEndBlock) {
-            return blockNumber
-                .sub(secondBonusEndBlock)
-                .mul(tokenPerBlock)
-                .add(totalAmountUntilSecondBonus);
-        }
-        if(blockNumber > bonusEndBlock) {
-            return blockNumber
-                .sub(bonusEndBlock)
-                .mul(secondBonusTokenPerBlock)
-                .add(totalAmountUntilBonus);
-        }
-        return blockNumber
-            .sub(startBlock)
-            .mul(bonusTokenPerBlock);
+        uint period = blockNumber.sub(startBlock);
+        uint periodIdx = period.div(blocksPerYear);
+        if(periodIdx > 5) periodIdx = 5;
+
+        return totalAmountUntilBonus[periodIdx]
+            .add(
+                period
+                    .sub(blocksPassed[periodIdx])
+                    .mul(tokenPerBlock[periodIdx]));
     }
 
     function rewardPerPeriod(uint lastBlock) public view returns (uint) {
@@ -281,8 +268,10 @@ contract Distributor {
             .sub(user.minusAmount);
 
         if(reward > 0) {
+            uint rewardToUser = reward.mul(uint(100).sub(receiverFee)).div(100);
             user.minusAmount = reward.add(user.minusAmount);
-            dino.mint(msg.sender, reward);
+            dino.mint(msg.sender, rewardToUser);
+            dino.mint(dino.receiver(), reward.sub(rewardToUser));
         }
 
         emit ClaimReward(msg.sender, idx, reward);

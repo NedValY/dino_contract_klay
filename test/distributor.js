@@ -25,12 +25,9 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
             this.distributor = await Distributor.new(
                 this.dino.address,
                 '100',
-                '100',
-                '1000',
-                '100',
-                '100',
-                '0',
-                '0',
+                '1000000000000000000',
+                '400',
+                '3',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
@@ -49,23 +46,20 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
             assert.equal((await this.dino.balanceOf(bob)).valueOf(), '0');
             await time.advanceBlockTo('100');
             await this.distributor.claim(0, { from: bob }); // block 101
-            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '100');
+            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '97');
             await time.advanceBlockTo('104');
             await this.distributor.claim(0, { from: bob }); // block 105
-            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '500');
+            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '485');
             assert.equal((await this.dino.totalSupply()).valueOf(), '500');
         });
 
         it('should not distribute dinos if no one deposit', async () => {
             this.distributor = await Distributor.new(
                 this.dino.address,
-                '100',
                 '200',
-                '1000',
-                '200',
-                '200',
-                '0',
-                '0',
+                '1000000000000000000',
+                '400',
+                '3',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
@@ -85,19 +79,16 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
             await this.distributor.withdraw(0, '10', { from: bob }); // block 220
 
             assert.equal((await this.dino.totalSupply()).valueOf(), '1000');
-            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '1000');
+            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '970');
             assert.equal((await this.lp.balanceOf(bob)).valueOf(), '1000');
         });
 
         it('should distribute dinos properly for each staker', async () => {
             this.distributor = await Distributor.new(
                 this.dino.address,
-                '100',
                 '300',
-                '1000',
-                '300',
-                '300',
-                '0',
+                '1000000000000000000',
+                '400',
                 '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
@@ -155,12 +146,9 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
         it('should give proper dinos allocation to each pool', async () => {
             this.distributor = await Distributor.new(
                 this.dino.address,
-                '100',
                 '400',
-                '1000',
+                '1000000000000000000',
                 '400',
-                '400',
-                '0',
                 '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
@@ -193,13 +181,10 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
         it('should stop giving bonus after the bonus period ends', async () => {
             this.distributor = await Distributor.new(
                 this.dino.address,
-                '100',
                 '600',
-                '700',
-                '630',
-                '660',
-                '4',
-                '2',
+                '10',
+                '400',
+                '0',
                 { from: alice });
             await this.dino.setMinter(this.distributor.address, {from: dev});
 
@@ -207,58 +192,43 @@ contract('Distributor test', ([alice, bob, carol, dev, minter]) => {
             await this.lp.approve(this.distributor.address, '1000', { from: bob });
             await this.distributor.addRewardPool(this.lp.address, '1', {from: dev});
             // Alice deposits 10 LPs at block 590
-            await time.advanceBlockTo('625');
+            await time.advanceBlockTo('605');
             await this.distributor.deposit(0, '10', { from: alice });
             await this.distributor.deposit(0, '10', { from: bob });
 
-            await time.advanceBlockTo('650');
-            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '3000'); //400+200*3+100*20
-            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '2600'); //200*3+100*20
+            await time.advanceBlockTo('615');
 
-            await this.distributor.claim(0, { from: alice });
-            assert.equal((await this.dino.balanceOf(alice)).valueOf(), '3100');
-            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '0');
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '47500000000000000000'); //10+10/2*3+9/2*5
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '37500000000000000000'); //10/2*3+9/2*5
 
-            await time.advanceBlockTo('670');
+            await time.advanceBlockTo('625');
 
-            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '1400'); //100*9+50*10
-            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '4100'); //100*10+50*10
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '90000000000000000000'); //10+10/2*3+9/2*10+8/2*5
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '80000000000000000000'); //10/2*3+9/2*10+8/2*5
+
+            await time.advanceBlockTo('635');
+
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '127500000000000000000'); //10+10/2*3+9/2*10+8/2*10+7/2*5
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '117500000000000000000'); //10/2*3+9/2*10+8/2*10+7/2*5
+
+            await time.advanceBlockTo('645');
+
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '160000000000000000000'); //10+10/2*3+9/2*10+8/2*10+7/2*10+6/2*5
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '150000000000000000000'); //10/2*3+9/2*10+8/2*10+7/2*10+6/2*5
+
+            await time.advanceBlockTo('655');
+
+            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '175000000000000000000'); //10+10/2*3+9/2*10+8/2*10+7/2*10+6/2*10
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '165000000000000000000'); //10/2*3+9/2*10+8/2*10+7/2*10+6/2*10
 
             await this.distributor.claim(0, { from: alice });
             await this.distributor.claim(0, { from: bob });
 
-            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '50');
-            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '0');
-            assert.equal((await this.dino.balanceOf(alice)).valueOf(), '4550');
-            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '4200');
-        });
-
-        it('should stop giving distributors after the period ends', async () => {
-            this.distributor = await Distributor.new(
-                this.dino.address,
-                '100',
-                '700',
-                '800',
-                '700',
-                '700',
-                '0',
-                '0',
-                { from: alice });
-            await this.dino.setMinter(this.distributor.address, {from: dev});
-
-            await this.lp.approve(this.distributor.address, '1000', { from: alice });
-            await this.distributor.addRewardPool(this.lp.address, '1', {from: dev});
-            // Alice deposits 10 LPs at block 590
-            await time.advanceBlockTo('789');
-            await this.distributor.deposit(0, '10', { from: alice });
-
-            await time.advanceBlockTo('805');
-            assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '1000');
-
-            await this.distributor.claim(0, { from: alice });
-
             assert.equal((await this.distributor.rewardAmount(0, alice)).valueOf(), '0');
-            assert.equal((await this.dino.balanceOf(alice)).valueOf(), '1000');
+            assert.equal((await this.distributor.rewardAmount(0, bob)).valueOf(), '0');
+            assert.equal((await this.dino.balanceOf(alice)).valueOf(), '175000000000000000000');
+            assert.equal((await this.dino.balanceOf(bob)).valueOf(), '165000000000000000000');
         });
+
     });
 });

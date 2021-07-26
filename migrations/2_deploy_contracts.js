@@ -10,7 +10,7 @@ const MockKIP7 = artifacts.require('MockKIP7');
 const MockKIP17 = artifacts.require('MockKIP17');
 
 module.exports = function (deployer) {
-    /*
+
     let dinoInstance;
     let distributorInstance;
     deployer.deploy(Dino,
@@ -24,13 +24,10 @@ module.exports = function (deployer) {
     }).then(function(instance) {
         return deployer.deploy(Distributor,
             Dino.address,
-            "1000000000000000000",
-            "64525000",
-            "70000000",
-            "64625000",
-            "64725000",
-            "10",
-            "5");
+            "65735100",
+            "31536000",
+            "104000000",
+            "3");
     }).then(function(instance) {
         distributorInstance = instance;
         return deployer.deploy(Mapper, Dino.address);
@@ -69,6 +66,4 @@ module.exports = function (deployer) {
     }).catch(function(error) {
         console.log(error);
     });
-
-     */
 }
